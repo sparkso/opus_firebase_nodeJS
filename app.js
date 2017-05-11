@@ -3,12 +3,30 @@ var path          = require('path');
 var favicon       = require('serve-favicon');
 var cookieParser  = require('cookie-parser');
 var bodyParser    = require('body-parser');
+var firebase      = require('firebase');
 
 // var apiRoutes = express.Router(); 
 
 var routes        = require('./routes/index');
 
 var app           = express();
+
+//firebase initialization
+var config = {
+  apiKey: "AIzaSyBiRtlX1OIPZoN1uHvO4Qg1xNVqW4YlW4w",
+  authDomain: "vweeter-187aa.firebaseapp.com",
+  databaseURL: "https://vweeter-187aa.firebaseio.com",
+  storageBucket: "<BUCKET>.appspot.com",
+};
+var defaultApp = firebase.initializeApp(config);
+
+console.log(defaultApp.name);
+
+var defaultDatabase = firebase.database();
+var channelRef = firebase.database().ref('Channel/');
+channelRef.on('value', function(snapshot) {
+  console.log(snapshot.val());
+});
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
