@@ -50,18 +50,18 @@ trackVweeters = (channelName) => {
             'duration':duration
         });
 
-        // if (isBroadcasting){
-        //     broadcastQuery = broadcastRef.child(channelName);
-        //     broadcastQuery.once('value', function(snapshot){
-        //         var live = snapshot.val().live;
-        //         if (live == -9999 && vweeters[channelName].length > 0){
-        //             console.log('we need to upate ' + channelName + ' live as : ' + key + ' from ' + live);
-        //             broadcastRef.child(channelName).set({
-        //                 'live' : key
-        //             });
-        //         }
-        //     });
-        // }
+        if (isBroadcasting){
+            broadcastQuery = broadcastRef.child(channelName);
+            broadcastQuery.once('value', function(snapshot){
+                var live = snapshot.val().live;
+                if (live == -9999 && vweeters[channelName].length > 0){
+                    console.log('we need to upate ' + channelName + ' live as : ' + key + ' from ' + live);
+                    broadcastRef.child(channelName).set({
+                        'live' : key
+                    });
+                }
+            });
+        }
     });
 
     queryRef.on('child_removed', function(snapshot){
