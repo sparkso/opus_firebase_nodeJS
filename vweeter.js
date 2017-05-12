@@ -50,35 +50,37 @@ trackVweeters = (channelName) => {
             'duration':duration
         });
 
-        if (isBroadcasting){
-            broadcastQuery = broadcastRef.child(channelName);
-            broadcastQuery.once('value', function(snapshot){
-                var live = snapshot.val().live;
-                if (live == -9999 && vweeters[channelName].length > 0){
-                    console.log('we need to upate ' + channelName + ' live as : ' + key + ' from ' + live);
-                    broadcastRef.child(channelName).set({
-                        'live' : key
-                    });
-                }
-            });
-        }
+        // if (isBroadcasting){
+        //     broadcastQuery = broadcastRef.child(channelName);
+        //     broadcastQuery.once('value', function(snapshot){
+        //         var live = snapshot.val().live;
+        //         if (live == -9999 && vweeters[channelName].length > 0){
+        //             console.log('we need to upate ' + channelName + ' live as : ' + key + ' from ' + live);
+        //             broadcastRef.child(channelName).set({
+        //                 'live' : key
+        //             });
+        //         }
+        //     });
+        // }
     });
 
     queryRef.on('child_removed', function(snapshot){
-        for (var idx = 0; idx < vweeters[channelName].length; idx++){
-            var vweeter = vweeters[channelName][idx];
-            var key = vweeter.key;
-            console.log(snapshot.key);
-            if (snapshot.key == key){
-                console.log(snapshot.key + ' should be removed.');
-                vweeters[channelName].splice(idx,1);
+        if(snapshot.val() != null){
+            for (var idx = 0; idx < vweeters[channelName].length; idx++){
+                var vweeter = vweeters[channelName][idx];
+                var key = vweeter.key;
+                console.log(snapshot.key);
+                if (snapshot.key == key){
+                    console.log(snapshot.key + ' should be removed.');
+                    vweeters[channelName].splice(idx,1);
+
+                    if(vweeters[channelName].length == 0){
+                        broadcastRef.child(channelName).set({
+                            'live' : -9999
+                        });
+                    }
+                }
             }
-        }
-    
-        if(vweeters[channelName].length == 0){
-            broadcastRef.child(channelName).set({
-                'live' : -9999
-            });
         }
     });
 
