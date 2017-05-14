@@ -1,10 +1,8 @@
 var firebase      = require('firebase');
 var defaultDatabase, channelRef, broadcastRef;
 var channels = [];
-var vweeters = {};
+var vweeters = {}, isInitializedVweeters = {};
 var broadcasts = [];
-
-var isBroadcasting = false;
 
 Vweeter = () => {
     defaultDatabase = firebase.database();
@@ -23,7 +21,7 @@ Vweeter.update = () => {
 trackBroadCasts = () => {
     broadcastRef.on('child_added', function(snapshot){
         if(snapshot.val() != null){
-            console.log( 'broadcast of ' + snapshot.key + ' intialized as ' + snapshot.val().live);
+            console.log( 'broadcast of ' + snapshot.key + ' intialized as ' + snapshot.val().live.idx);
         }
     });
 }
@@ -36,47 +34,52 @@ trackChannels = () => {
     });
 }
 
-trackVweeters = (channelName) => {
-    var vweeterRef = firebase.database().ref('Vweeter/' + channelName);
-    var queryRef = vweeterRef.limitToLast(20);
-    vweeters[channelName] = [];
+trackVweeters = (channel) => {
+    var vweeterRef = firebase.database().ref('Vweeter/' + channel);
+    var queryRef = vweeterRef.limitToLast(3);
+    vweeters[channel] = [];
+    isInitializedVweeters[channel] = false;
+
     queryRef.on('child_added', function(snapshot) {
         var key = snapshot.key;
         var duration = snapshot.val().duration;
         var voice = snapshot.val().voice;
-        vweeters[channelName].push({
-            'key': key,
-            'voice':voice,
-            'duration':duration
-        });
-
-        if (isBroadcasting){
-            broadcastQuery = broadcastRef.child(channelName);
-            broadcastQuery.once('value', function(snapshot){
-                var live = snapshot.val().live;
-                if (live == -9999 && vweeters[channelName].length > 0){
-                    console.log('we need to upate ' + channelName + ' live as : ' + key + ' from ' + live);
-                    broadcastRef.child(channelName).set({
-                        'live' : key
-                    });
-                }
+    
+        var isInitialized = isInitializedVweeters[channel];
+        if (isInitialized){
+            //TODO: update playlist
+            vweeters[channel].push({
+                'key': key,
+                'voice':voice,
+                'duration':duration,
+                'isNew':true
+            });
+        }else{
+            vweeters[channel].push({
+                'key': key,
+                'voice':voice,
+                'duration':duration,
+                'isNew':false
             });
         }
     });
 
     queryRef.on('child_removed', function(snapshot){
         if(snapshot.val() != null){
-            for (var idx = 0; idx < vweeters[channelName].length; idx++){
-                var vweeter = vweeters[channelName][idx];
+            for (var idx = 0; idx < vweeters[channel].length; idx++){
+                var vweeter = vweeters[channel][idx];
                 var key = vweeter.key;
                 console.log(snapshot.key);
                 if (snapshot.key == key){
                     console.log(snapshot.key + ' should be removed.');
-                    vweeters[channelName].splice(idx,1);
+                    vweeters[channel].splice(idx,1);
 
-                    if(vweeters[channelName].length == 0){
-                        broadcastRef.child(channelName).set({
-                            'live' : -9999
+                    if(vweeters[channel].length == 0){
+                        broadcastRef.child(channel).set({
+                            'live' : {
+                                'idx':-9999,
+                                'isNew':true
+                            },
                         });
                     }
                 }
@@ -85,68 +88,116 @@ trackVweeters = (channelName) => {
     });
 
     queryRef.once('value', function(snapshot){
-        broadcastChannel(channelName);
+        isInitializedVweeters[channel] = true;
+        broadcastChannel(channel);
     });
 }
 
-broadcastChannel = (channelName) => {
+broadcastChannel = (channel) => {
 
-    var size = vweeters[channelName].length;
-    var idx = -9999;
-    var next_idx = 0; // next tweeter
-    var duration = 0;
-    if (size > 0){
-        var currentVweeter = vweeters[channelName][size - 1];
-        idx = currentVweeter.key;
-        duration = currentVweeter.duration;
-    }
+    var next_idx = 0;       // next vweeter
+    var next_link = "null"; // next link of voice
 
     // need to create broadcast if we dont have yet
-    broadcastQuery = broadcastRef.child(channelName);
-    broadcastQuery.once('value', function(snapshot){
-        if(snapshot.val() == null){
-            broadcastRef.child(channelName).set({
-                'live' : idx
-            });
-            console.log('created ' + channelName + ' broadcast');
-        }
-
-        isBroadcasting = true;
-    });
+    checkoutBroadcast(channel);
 
     broadcastQuery.on('value', function(snapshot){
         if (snapshot.val() != null){
             var channel = snapshot.key;
-            var current = snapshot.val().live;
-            console.log('broadcast of ' + channel + ' value has been changed :' + current);
+            var current = snapshot.val().live.idx;
+            console.log('broadcast of ' + channel + ' -> :' + current);
 
-            var idn = 0;
-            for (var idx = 0; idx < vweeters[channel].length; idx++){
-                var vweeter = vweeters[channel][idx];
-                var key = vweeter.key;
-                var duration = vweeter.duration; 
-                if (key == current){
-                    idn = idx + 1;
-                    if (idn >= vweeters[channel].length){
-                        idn = 0;
-                    }
-
-                    var next_vweeter = vweeters[channel][idn];
-                    next_idx = next_vweeter.key;
-
-                    setTimeout(next, duration*1000);
-                    break;
-                }
-            }
+            updateBroadcast(channel, current);
         }
     });
 
-    function next(){
-        broadcastRef.child(channelName).set({
-            'live' : next_idx
+    function checkNewVweeter(channel, callback){
+        var isExist = false;
+        var vweeter = null;
+        var indexOf = 0;
+        for (var idx = 0; idx < vweeters[channel].length; idx++){
+            vweeter = vweeters[channel][idx];
+            indexOf = idx;
+            var isNew = vweeter.isNew;
+            if (isNew == true) {
+                isExist = true;
+
+                // make new vweeter as old one
+                vweeter.isNew = false;
+                break;
+            }
+        }
+
+        return callback(isExist, vweeter, indexOf);
+    }
+
+    function updateBroadcast(channel, current){
+
+        checkNewVweeter(channel, function(isExist, vweeter, indexOf){
+            if (isExist){
+                var duration = vweeter.duration;
+                next_idx = vweeter.key;
+                setTimeout(function(){
+                    broadcastRef.child(channel).set({
+                        'live' : {
+                            'idx':next_idx,
+                            'isNew':isExist
+                        },
+                    });
+                }, (duration + 1.5) * 1000);
+            }else{
+                var idn = 0;
+                for (var idx = 0; idx < vweeters[channel].length; idx++){
+                    var vweeter = vweeters[channel][idx];
+                    var key = vweeter.key;
+                    var duration = vweeter.duration; 
+                    if (key == current){
+                        idn = idx + 1;
+                        if (idn >= vweeters[channel].length){
+                            idn = 0;
+                        }
+
+                        var next_vweeter = vweeters[channel][idn];
+                        next_idx = next_vweeter.key;
+                        next_link = next_vweeter.voice;
+                        setTimeout(function(){
+                            
+                            broadcastRef.child(channel).set({
+                                'live' : {
+                                    'idx':next_idx,
+                                    'isNew':isExist
+                                },
+                            });
+                        }, (duration + 1.5) * 1000);
+                        break; 
+                    }
+                }
+            }
         });
     }
 
+    function checkoutBroadcast(channel){
+        var size = vweeters[channel].length;
+        var idx = -9999;
+        var duration = 0;
+        if (size > 0){
+            var currentVweeter = vweeters[channel][size - 1];
+            idx = currentVweeter.key;
+            duration = currentVweeter.duration;
+        }
+        broadcastQuery = broadcastRef.child(channel);
+        broadcastQuery.once('value', function(snapshot){
+            if(snapshot.val() == null){
+                broadcastRef.child(channel).set({
+                    'live' : {
+                        'idx':idx,
+                        'isNew':true
+                    },
+                });
+                console.log('created ' + channel + ' broadcast');
+            }
+        });
+    }
     /*
     if(duration > 0){
         function next() {
