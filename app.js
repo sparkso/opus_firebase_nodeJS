@@ -5,14 +5,12 @@ var cookieParser  = require('cookie-parser');
 var bodyParser    = require('body-parser');
 var firebase      = require('firebase');
 var vweeter       = require('./vweeter.js');
-// var apiRoutes = express.Router(); 
 
 var routes        = require('./routes/index');
 
 var app           = express();
 
 console.log('initialize firebase')
-//firebase initialization
 var config = {
   apiKey: "AIzaSyBiRtlX1OIPZoN1uHvO4Qg1xNVqW4YlW4w",
   authDomain: "vweeter-187aa.firebaseapp.com",
@@ -22,6 +20,11 @@ var config = {
 firebase.initializeApp(config);
 
 vweeter(); // call vweeter
+
+var http = require('https');
+setInterval(function(){
+  http.get('https://vweeter.herokuapp.com/');
+},300000);
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

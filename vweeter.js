@@ -36,7 +36,7 @@ trackChannels = () => {
 
 trackVweeters = (channel) => {
     var vweeterRef = firebase.database().ref('Vweeter/' + channel);
-    var queryRef = vweeterRef.limitToLast(3);
+    var queryRef = vweeterRef.limitToLast(20);
     vweeters[channel] = [];
     isInitializedVweeters[channel] = false;
 
@@ -47,7 +47,6 @@ trackVweeters = (channel) => {
     
         var isInitialized = isInitializedVweeters[channel];
         if (isInitialized){
-            //TODO: update playlist
             vweeters[channel].push({
                 'key': key,
                 'voice':voice,
@@ -95,7 +94,7 @@ trackVweeters = (channel) => {
 
 broadcastChannel = (channel) => {
 
-    var next_idx = 0;       // next vweeter
+    var next_idx = 0;       // next vweeter idx
     var next_link = "null"; // next link of voice
 
     // need to create broadcast if we dont have yet
@@ -121,9 +120,7 @@ broadcastChannel = (channel) => {
             var isNew = vweeter.isNew;
             if (isNew == true) {
                 isExist = true;
-
-                // make new vweeter as old one
-                vweeter.isNew = false;
+                vweeter.isNew = false; // update dictoionary value
                 break;
             }
         }
@@ -198,14 +195,6 @@ broadcastChannel = (channel) => {
             }
         });
     }
-    /*
-    if(duration > 0){
-        function next() {
-            console.log('Hello');
-            setTimeout(next, duration*1000);
-        }
-        setTimeout(next, duration*1000);
-    }*/
 }
 
 module.exports = Vweeter;
